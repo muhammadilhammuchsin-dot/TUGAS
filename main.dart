@@ -1,0 +1,230 @@
+import 'package:flutter/material.dart';
+
+void main(){
+  runApp(const App());
+}
+
+class App extends StatelessWidget{
+  const App({super.key});
+  @override
+  Widget build(BuildContext context){
+    return MaterialApp(
+      debugShowCheckedModeBanner:false,
+      home:const HomePage(),
+    );
+  }
+}
+
+String kategoriRating(double r){
+  if(r>=4.5){
+    return "Sangat Baik";
+  }else if(r>=3.5){
+    return "Baik";
+  }
+  return "Cukup";
+}
+
+String statusBuku(bool s){
+  return s?"Tersedia":"Dipinjam";
+}
+
+class HomePage extends StatefulWidget{
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState()=>_HomePageState();
+}
+
+class _HomePageState extends State<HomePage>{
+
+  String cari="";
+
+  List<Map<String,dynamic>> buku=[
+    {
+      "judul":"Laskar Pelangi",
+      "pengarang":"Andrea Hirata",
+      "tahunTerbit":2005,
+      "rating":4.8,
+      "tersedia":true,
+      "genre":"Novel",
+      "catatanPeminjam":null
+    },
+    {
+      "judul":"Bumi manusia",
+      "pengarang":"Pramoedya Ananta Toer",
+      "tahunTerbit":1980,
+      "rating":4.6,
+      "tersedia":false,
+      "genre":"Sejarah",
+      "catatanPeminjam":"Dikembalikan besok"
+    },
+    {
+      "judul":"Negeri Lima Negara",
+      "pengarang":"Ahmad Fuadi",
+      "tahunTerbit":2009,
+      "rating":4.5,
+      "tersedia":true,
+      "genre":"Inspirasi",
+      "catatanPeminjam":null
+    },
+    {
+      "judul":"Harry Potter",
+      "pengarang":"J.K rowling",
+      "tahunTerbit":1997,
+      "rating":4.7,
+      "tersedia":true,
+      "genre":"Fantasi",
+      "catatanPeminjam":null
+    },
+    {
+      "judul":"Filosofi teras",
+      "pengarang":"Henry Manampring",
+      "tahunTerbit":2018,
+      "rating":4.7,
+      "tersedia":false,
+      "genre":"Motivasi",
+      "catatanPeminjam":"Sedang dipinjam"
+    },
+    {
+      "judul":"Matematika Dasar",
+      "pengarang":"Budi Santoso",
+      "tahunTerbit":2020,
+      "rating":4.2,
+      "tersedia":true,
+      "genre":"Pendidikan",
+      "catatanPeminjam":null
+    },
+  ];
+
+  void cariBuku(String value){
+    setState(() {
+      cari=value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context){
+
+    Set<String> genre=buku.map((e)=>e["genre"].toString()).toSet();
+
+    var hasil=buku.where((e){
+      return e["judul"]
+          .toString()
+          .toLowerCase()
+          .contains(cari.toLowerCase());
+    }).toList();
+    return Scaffold(
+      appBar:AppBar(
+        title:const Text("Katalog Buku Perpustakaan Mini"),
+      ),
+      body:Column(
+        children:[
+          Wrap(
+            spacing:8,
+            children:genre.map((g){
+              return Chip(label:Text(g));
+            }).toList(),
+          ),
+          Padding(
+            padding:const EdgeInsets.all(10),
+            child:TextField(
+              onChanged:cariBuku,
+              decoration:const InputDecoration(
+                hintText:"Cari buku",
+                border:OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Expanded(
+            child:ListView.builder(
+              itemCount:hasil.length,
+              itemBuilder:(context,index){
+                var b=hasil[index];
+                return Card(
+                  child:ListTile(
+                    title:Text(b["judul"]),
+                    subtitle:Column(
+                      crossAxisAlignment:CrossAxisAlignment.start,
+                      children:[
+                        Text("Pengarang : ${b["pengarang"]}"),
+                        Text("Tahun : ${b["tahunTerbit"]}"),
+                        Text("Rating : ${b["rating"]}"),
+                        Text("Kategori : ${kategoriRating(b["rating"])}"),
+                        Text("Genre : ${b["genre"]}"),
+                        Text(
+                          statusBuku(b["tersedia"]),
+                          style:TextStyle(
+                            color:b["tersedia"]?Colors.green:Colors.red,
+                            fontWeight:FontWeight.bold
+                          ),
+                        )
+                      ],
+                    ),
+                    onTap:(){
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:(c)=>DetailPage(buku:b),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class DetailPage extends StatefulWidget{
+  final Map<String,dynamic> buku;
+  const DetailPage({super.key,required this.buku});
+
+  @override
+  State<DetailPage> createState()=>_DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage>{
+
+  String? catatanPeminjam;
+
+  @override
+  void initState(){
+    super.initState();
+    catatanPeminjam=widget.buku["catatanPeminjam"];
+  }
+
+  @override
+  Widget build(BuildContext context){
+    return Scaffold(
+      appBar:AppBar(
+        title:const Text("Detail Buku"),
+      ),
+      body:Padding(
+        padding:const EdgeInsets.all(20),
+        child:Column(
+          crossAxisAlignment:CrossAxisAlignment.start,
+          children:[
+            Text(
+              widget.buku["judul"],
+              style:const TextStyle(
+                fontSize:24,
+                fontWeight:FontWeight.bold,
+              ),
+            ),
+            Text("Pengarang : ${widget.buku["pengarang"]}"),
+            Text("Tahun : ${widget.buku["tahunTerbit"]}"),
+            Text("Rating : ${widget.buku["rating"]}"),
+            Text("Kategori : ${kategoriRating(widget.buku["rating"])}"),
+            Text("Genre : ${widget.buku["genre"]}"),
+            Text(
+              "Catatan : ${catatanPeminjam??"Tidak ada catatan"}",
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
