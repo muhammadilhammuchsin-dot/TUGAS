@@ -1,413 +1,318 @@
 import 'package:flutter/material.dart';
 
-void main(){
-  runApp(const App());
+void main() => runApp(const TokoApp());
+
+abstract class Produk {
+  final String id, nama;
+  final double harga;
+  int stok;
+
+  Produk(this.id, this.nama, this.harga, this.stok);
+  String deskripsi();
 }
 
-class App extends StatelessWidget{
-  const App({super.key});
+mixin BisaDiskon on Produk {
+  double diskon = 0;
 
-  @override
-  Widget build(BuildContext context){
-    return MaterialApp(
-      debugShowCheckedModeBanner:false,
-      theme:ThemeData(
-        primarySwatch:Colors.indigo,
-      ),
-      home:const HomePage(),
-    );
+  bool validasiDiskon() => diskon >= 0 && diskon <= 100;
+
+  double hitungHargaDiskon(double persen) {
+    diskon = persen;
+    if (!validasiDiskon()) throw ArgumentError('Diskon harus 0-100%');
+    return harga * (1 - persen / 100);
   }
 }
 
-String kategoriRating(double rating){
-  if(rating>=4.5){
-    return "Sangat Baik";
-  }else if(rating>=3.5){
-    return "Baik";
-  }else{
-    return "Cukup";
-  }
-}
+class ProdukDigital extends Produk with BisaDiskon {
+  final double ukuranMB;
+  final String formatFile;
 
-String statusBuku(bool tersedia){
-  return tersedia?"Tersedia":"Dipinjam";
-}
-
-class HomePage extends StatefulWidget{
-  const HomePage({super.key});
+  ProdukDigital(super.id, super.nama, super.harga, super.stok,
+      this.ukuranMB, this.formatFile);
 
   @override
-  State<HomePage> createState()=>_HomePageState();
+  String deskripsi() => '$ukuranMB MB • $formatFile';
 }
 
-class _HomePageState extends State<HomePage>{
+class ProdukFisik extends Produk with BisaDiskon {
+  final double beratGram;
+  final String dimensi;
 
-  String cari="";
+  ProdukFisik(super.id, super.nama, super.harga, super.stok,
+      this.beratGram, this.dimensi);
 
-  List<Map<String,dynamic>> buku=[
-    {
-      "judul":"Laskar Pelangi",
-      "pengarang":"Andrea Hirata",
-      "tahunTerbit":2005,
-      "rating":4.8,
-      "tersedia":true,
-      "genre":"Novel",
-      "catatanPeminjam":null
-    },
-    {
-      "judul":"Bumi Manusia",
-      "pengarang":"Pramoedya Ananta Toer",
-      "tahunTerbit":1980,
-      "rating":4.6,
-      "tersedia":false,
-      "genre":"Sejarah",
-      "catatanPeminjam":"Dikembalikan minggu depan"
-    },
-    {
-      "judul":"Negeri 5 Menara",
-      "pengarang":"Ahmad Fuadi",
-      "tahunTerbit":2009,
-      "rating":4.5,
-      "tersedia":true,
-      "genre":"Inspirasi",
-      "catatanPeminjam":null
-    },
-    {
-      "judul":"Harry Potter dan Batu Bertuah",
-      "pengarang":"J.K. Rowling",
-      "tahunTerbit":1997,
-      "rating":4.7,
-      "tersedia":true,
-      "genre":"Fantasi",
-      "catatanPeminjam":null
-    },
-    {
-      "judul":"Filosofi Teras",
-      "pengarang":"Henry Manampiring",
-      "tahunTerbit":2018,
-      "rating":4.4,
-      "tersedia":false,
-      "genre":"Motivasi",
-      "catatanPeminjam":"Sedang dipinjam siswa"
-    },
-    {
-      "judul":"Matematika Dasar",
-      "pengarang":"Budi Santoso",
-      "tahunTerbit":2020,
-      "rating":4.2,
-      "tersedia":true,
-      "genre":"Pendidikan",
-      "catatanPeminjam":null
+  @override
+  String deskripsi() => '$beratGram gram • $dimensi';
+}
+
+class StokHabisException implements Exception {
+  final String pesan;
+  StokHabisException(this.pesan);
+  @override
+  String toString() => pesan;
+}
+
+class ProdukTidakAda implements Exception {
+  final String pesan;
+  ProdukTidakAda(this.pesan);
+  @override
+  String toString() => pesan;
+}
+
+class Keranjang {
+  final List<Produk> items = [];
+
+  void tambah(Produk p) {
+    if (p.stok <= 0) throw StokHabisException('Stok ${p.nama} habis');
+    if (!items.contains(p)) items.add(p);
+  }
+
+  void hapus(Produk p) {
+    if (!items.remove(p)) throw ProdukTidakAda('${p.nama} tidak ada');
+  }
+
+  double totalHarga() => items.fold(0, (t, p) => t + p.harga);
+}
+
+class TokoService {
+  final List<Produk> produk;
+  TokoService(this.produk);
+
+  Future<Produk> cariProduk(String nama) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      return produk.firstWhere(
+        (p) => p.nama.toLowerCase().contains(nama.toLowerCase()),
+      );
+    } catch (_) {
+      throw ProdukTidakAda('Produk "$nama" tidak ditemukan');
     }
-  ];
-
-
-  @override
-  Widget build(BuildContext context){
-
-    Set<String> genre=
-    buku.map((e)=>e["genre"].toString()).toSet();
-
-
-    List<Map<String,dynamic>> hasil=
-    buku.where((item){
-
-      return item["judul"]
-          .toString()
-          .toLowerCase()
-          .contains(cari.toLowerCase());
-
-    }).toList();
-
-
-    return Scaffold(
-
-      appBar:AppBar(
-        title:const Text("📚 Katalog Buku Perpustakaan Mini"),
-        centerTitle:true,
-      ),
-
-
-      body:Column(
-
-        children:[
-
-          Padding(
-            padding:const EdgeInsets.all(10),
-            child:Column(
-
-              children:[
-
-                Wrap(
-                  spacing:8,
-                  children:genre.map((g){
-                    return Chip(
-                      label:Text(g),
-                    );
-                  }).toList(),
-                ),
-
-                const SizedBox(height:10),
-
-                TextField(
-
-                  decoration:const InputDecoration(
-                    hintText:"Cari judul buku",
-                    border:OutlineInputBorder(),
-                    prefixIcon:Icon(Icons.search),
-                  ),
-
-                  onChanged:(value){
-
-                    setState((){
-
-                      cari=value;
-
-                    });
-
-                  },
-
-                ),
-
-              ],
-
-            ),
-
-          ),
-
-
-          Expanded(
-
-            child:ListView.builder(
-
-              itemCount:hasil.length,
-
-              itemBuilder:(context,index){
-
-                var data=hasil[index];
-
-                return Card(
-
-                  margin:const EdgeInsets.all(8),
-
-                  elevation:4,
-
-                  child:ListTile(
-
-                    title:Text(
-
-                      data["judul"],
-
-                      style:const TextStyle(
-                        fontWeight:FontWeight.bold,
-                      ),
-
-                    ),
-
-                    subtitle:Column(
-
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
-
-                      children:[
-
-                        Text(
-                          "Pengarang : ${data["pengarang"]}",
-                        ),
-
-                        Text(
-                          "Tahun Terbit : ${data["tahunTerbit"]}",
-                        ),
-
-                        Text(
-                          "Rating : ${data["rating"]}",
-                        ),
-
-                        Text(
-                          "Kategori : ${kategoriRating(data["rating"])}",
-                        ),
-
-                        Text(
-                          "Genre : ${data["genre"]}",
-                        ),
-
-                        Text(
-
-                          statusBuku(data["tersedia"]),
-
-                          style:TextStyle(
-
-                            color:data["tersedia"]
-                                ?Colors.green
-                                :Colors.red,
-
-                            fontWeight:
-                            FontWeight.bold,
-
-                          ),
-
-                        )
-
-                      ],
-
-                    ),
-
-
-                    onTap:(){
-
-                      Navigator.push(
-
-                        context,
-
-                        MaterialPageRoute(
-
-                          builder:(context)=>
-
-                              DetailPage(
-
-                                buku:data,
-
-                              ),
-
-                        ),
-
-                      );
-
-                    },
-
-
-                  ),
-
-                );
-
-              },
-
-            ),
-
-          )
-
-        ],
-
-      ),
-
-    );
-
   }
 
+  Future<void> prosesCheckout(Keranjang k) async {
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (k.items.isEmpty) throw ProdukTidakAda('Keranjang masih kosong');
+
+    for (final p in k.items) {
+      if (p.stok <= 0) throw StokHabisException('Stok ${p.nama} habis');
+    }
+
+    for (final p in k.items) {
+      p.stok--;
+    }
+
+    k.items.clear();
+  }
 }
 
-
-
-class DetailPage extends StatefulWidget{
-
-  final Map<String,dynamic> buku;
-
-  const DetailPage({
-
-    super.key,
-
-    required this.buku,
-
-  });
-
+class TokoApp extends StatelessWidget {
+  const TokoApp({super.key});
 
   @override
-  State<DetailPage> createState()
-  =>_DetailPageState();
-
+  Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorSchemeSeed: Colors.indigo,
+          useMaterial3: true,
+        ),
+        home: const TokoPage(),
+      );
 }
 
-
-class _DetailPageState extends State<DetailPage>{
-
-  String? catatanPeminjam;
-
+class TokoPage extends StatefulWidget {
+  const TokoPage({super.key});
 
   @override
-  void initState(){
+  State<TokoPage> createState() => _TokoPageState();
+}
 
+class _TokoPageState extends State<TokoPage> {
+  final keranjang = Keranjang();
+  final cari = TextEditingController();
+
+  late final List<Produk> produk;
+  late final TokoService service;
+  bool loading = false;
+
+  @override
+  void initState() {
     super.initState();
 
-    catatanPeminjam=
-    widget.buku["catatanPeminjam"];
+    produk = [
+      ProdukDigital('D1', 'E-Book Flutter', 150000, 10, 25, 'PDF'),
+      ProdukFisik(
+          'F1', 'Keyboard Mechanical', 750000, 5, 850, '35x15x4 cm'),
+      ProdukFisik(
+          'F2', 'Mouse Wireless', 250000, 8, 120, '10x6x4 cm'),
+    ];
 
+    service = TokoService(produk);
   }
 
+  void pesan(String text) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(text)));
+
+  IconData ikon(Produk p) => p is ProdukDigital
+      ? Icons.menu_book_rounded
+      : p.nama.contains('Keyboard')
+          ? Icons.keyboard_rounded
+          : Icons.mouse_rounded;
+
+  Future<void> cariProduk() async {
+    if (cari.text.isEmpty) return pesan('Masukkan nama produk');
+
+    try {
+      final p = await service.cariProduk(cari.text);
+      pesan('${p.nama} ditemukan • Stok ${p.stok}');
+    } catch (e) {
+      pesan(e.toString());
+    }
+  }
+
+  void ubahKeranjang(Produk p) {
+    try {
+      keranjang.items.contains(p) ? keranjang.hapus(p) : keranjang.tambah(p);
+      setState(() {});
+    } catch (e) {
+      pesan(e.toString());
+    }
+  }
+
+  Future<void> checkout() async {
+    setState(() => loading = true);
+
+    try {
+      await service.prosesCheckout(keranjang);
+      pesan('Checkout berhasil!');
+      setState(() {});
+    } catch (e) {
+      pesan(e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
 
   @override
-  Widget build(BuildContext context){
-
-    return Scaffold(
-
-      appBar:AppBar(
-        title:const Text("Detail Buku"),
-      ),
-
-      body:Padding(
-
-        padding:const EdgeInsets.all(20),
-
-        child:Column(
-
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
-
-          children:[
-
-            Text(
-
-              widget.buku["judul"],
-
-              style:const TextStyle(
-
-                fontSize:24,
-
-                fontWeight:
-                FontWeight.bold,
-
-              ),
-
-            ),
-
-            const SizedBox(height:15),
-
-            Text(
-              "Pengarang : ${widget.buku["pengarang"]}",
-            ),
-
-            Text(
-              "Tahun Terbit : ${widget.buku["tahunTerbit"]}",
-            ),
-
-            Text(
-              "Rating : ${widget.buku["rating"]}",
-            ),
-
-            Text(
-              "Kategori : ${kategoriRating(widget.buku["rating"])}",
-            ),
-
-            Text(
-              "Genre : ${widget.buku["genre"]}",
-            ),
-
-            const SizedBox(height:10),
-
-            Text(
-
-              "Catatan Peminjam : "
-                  "${catatanPeminjam ?? "Tidak ada catatan"}",
-
-            ),
-
-          ],
-
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: const Color(0xfff5f6fa),
+        appBar: AppBar(
+          title: const Text('Toko Online'),
+          centerTitle: true,
         ),
+        body: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.indigo, Colors.blue],
+                ),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.storefront, color: Colors.white, size: 38),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Belanja Lebih Mudah\nDiskon 10% Semua Produk',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.local_offer, color: Colors.white),
+                ],
+              ),
+            ),
 
-      ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: TextField(
+                controller: cari,
+                onSubmitted: (_) => cariProduk(),
+                decoration: InputDecoration(
+                  hintText: 'Cari produk...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    onPressed: cariProduk,
+                    icon: const Icon(Icons.arrow_forward),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
 
-    );
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(14),
+                children: produk.map((p) {
+                  final masuk = keranjang.items.contains(p);
+                  final harga =
+                      (p as BisaDiskon).hitungHargaDiskon(10);
 
-  }
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Icon(ikon(p)),
+                      ),
+                      title: Text(
+                        p.nama,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${p.deskripsi()}\n'
+                        'Rp${harga.toStringAsFixed(0)} • Stok ${p.stok}',
+                      ),
+                      isThreeLine: true,
+                      trailing: IconButton.filledTonal(
+                        onPressed: () => ubahKeranjang(p),
+                        icon: Icon(
+                          masuk
+                              ? Icons.delete_outline
+                              : Icons.add_shopping_cart,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
 
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.shopping_bag,
+                    color: Colors.indigo,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${keranjang.items.length} item • '
+                      'Rp${keranjang.totalHarga().toStringAsFixed(0)}',
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: loading ? null : checkout,
+                    icon: const Icon(Icons.payment),
+                    label: Text(
+                      loading ? 'Proses...' : 'Checkout',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 }
